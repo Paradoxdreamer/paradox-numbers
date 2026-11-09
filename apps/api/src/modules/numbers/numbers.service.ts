@@ -48,6 +48,12 @@ export class NumbersService {
     return !!data;
   }
 
+  /**
+   * Release a claim we previously took.
+   * Safe because the unique active-rental index guarantees only one
+   * active rental can exist for a number — so if we hold the claim
+   * we are the only one who can release it.
+   */
   async releaseClaim(numberId: string): Promise<void> {
     const supabase = getSupabase();
     await supabase
