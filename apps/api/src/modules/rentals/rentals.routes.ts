@@ -4,21 +4,19 @@ import { getProvider } from "../telecom";
 import { requireUserId, AuthError } from "../../lib/auth";
 import { AccountsService } from "../accounts/accounts.service";
 
+const WEBHOOK_URL =
+  process.env.SMS_WEBHOOK_URL ??
+  `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/v1/webhooks/sms`;
+
 export async function rentalsRoutes(app: FastifyInstance) {
   const service = new RentalsService(getProvider("mock"));
   const accounts = new AccountsService();
 
-  /**
-   * Create a rental.
-   * Requires JWT. Uses the authenticated user's primary account
-   * (does not trust accountId from the body).
-   */
   app.post("/rentals", async (request, reply) => {
     try {
       const userId = await requireUserId(request);
       const body = request.body as {
         phoneNumber?: string;
-        webhookUrl?: string;
         periodDays?: number;
       };
 
@@ -26,15 +24,12 @@ export async function rentalsRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: "phoneNumber is required" });
       }
 
-      // Resolve the caller's account from the verified identity
       const account = await accounts.getOrCreateForUser(userId);
 
       const result = await service.create({
         accountId: account.id,
         phoneNumber: body.phoneNumber,
-        webhookUrl:
-          body.webhookUrl ??
-          `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/v1/webhooks/sms`,
+        webhookUrl: WEBHOOK_URL,
         periodDays: body.periodDays,
       });
 
@@ -50,10 +45,6 @@ export async function rentalsRoutes(app: FastifyInstance) {
     }
   });
 
-  /**
-   * List rentals for an account.
-   * Requires JWT + membership of that account.
-   */
   app.get("/accounts/:accountId/rentals", async (request, reply) => {
     try {
       const userId = await requireUserId(request);
@@ -75,10 +66,6 @@ export async function rentalsRoutes(app: FastifyInstance) {
     }
   });
 
-  /**
-   * Get a single rental.
-   * Requires JWT + membership of the rental's account.
-   */
   app.get("/rentals/:rentalId", async (request, reply) => {
     try {
       const userId = await requireUserId(request);
