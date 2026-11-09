@@ -1,16 +1,34 @@
+import { supabase } from "./supabase";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
+async function getAccessToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  auth = false
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  if (auth) {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   const data = await res.json().catch(() => ({}));
@@ -55,14 +73,18 @@ export const api = {
   },
 
   /**
-   * Resolve or create the account for a signed-in user.
-   * Call this right after successful Auth.
+   * Resolve or create the account for the currently signed-in user.
+   * Requires a valid session. userId is taken from the JWT on the server.
    */
-  resolveAccount(userId: string, name?: string) {
-    return request<{ account: Account }>("/accounts/me", {
-      method: "POST",
-      body: JSON.stringify({ userId, name }),
-    });
+  resolveAccount(name?: string) {
+    return request<{ account: Account }>(
+      "/accounts/me",
+      {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      },
+      true // auth required
+    );
   },
 
   searchNumbers(params: {
