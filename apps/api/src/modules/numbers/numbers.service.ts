@@ -109,7 +109,9 @@ export class NumbersService {
 
     if (toInsert.length === 0) return;
 
-    const { error } = await supabase.from("numbers").insert(toInsert);
+    const { error } = await supabase.from("numbers").insert(toInsert, {
+      ignoreDuplicates: true,
+    });
     if (error) throw error;
   }
 }
