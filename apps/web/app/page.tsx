@@ -17,13 +17,11 @@ export default function HomePage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [areaCode, setAreaCode] = useState("");
 
-  // Auth form state
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
 
-  // Bootstrap session
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const sessionUser = data.session?.user ?? null;
@@ -62,7 +60,6 @@ export default function HomePage() {
         u.email?.split("@")[0] ||
         "Personal";
 
-      // userId is no longer sent — the API extracts it from the JWT
       const { account } = await api.resolveAccount(name);
       setAccount(account);
 
@@ -101,7 +98,6 @@ export default function HomePage() {
           password,
         });
         if (error) throw error;
-        // onAuthStateChange will handle the rest
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
@@ -150,10 +146,8 @@ export default function HomePage() {
     setSuccess(null);
     setLoading(true);
     try {
-      await api.createRental({
-        accountId: account.id,
-        phoneNumber,
-      });
+      // accountId is resolved server-side from the JWT
+      await api.createRental({ phoneNumber });
       setSuccess(`Rented ${phoneNumber} successfully.`);
       setNumbers((prev) => prev.filter((n) => n.phoneNumber !== phoneNumber));
       const { rentals } = await api.listRentals(account.id);
