@@ -83,7 +83,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ name }),
       },
-      true // auth required
+      true
     );
   },
 
@@ -104,21 +104,26 @@ export const api = {
     );
   },
 
-  createRental(input: {
-    accountId: string;
-    phoneNumber: string;
-    webhookUrl?: string;
-  }) {
+  /**
+   * Rent a number for the authenticated user's account.
+   * accountId is resolved server-side from the JWT.
+   */
+  createRental(input: { phoneNumber: string; webhookUrl?: string }) {
     return request<{ rental: Rental; provision: { providerNumberId: string } }>(
       "/rentals",
       {
         method: "POST",
         body: JSON.stringify(input),
-      }
+      },
+      true
     );
   },
 
   listRentals(accountId: string) {
-    return request<{ rentals: Rental[] }>(`/accounts/${accountId}/rentals`);
+    return request<{ rentals: Rental[] }>(
+      `/accounts/${accountId}/rentals`,
+      {},
+      true
+    );
   },
 };
