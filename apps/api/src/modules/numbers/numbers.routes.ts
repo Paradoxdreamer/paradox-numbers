@@ -5,7 +5,7 @@ import { getProvider } from "../telecom";
 export async function numbersRoutes(app: FastifyInstance) {
   const service = new NumbersService(getProvider("mock"));
 
-  app.get("/numbers/search", async (request) => {
+  app.get("/numbers/search", async (request, reply) => {
     const query = request.query as {
       country?: string;
       areaCode?: string;
@@ -17,13 +17,18 @@ export async function numbersRoutes(app: FastifyInstance) {
       ? (query.capabilities.split(",") as ("sms" | "voice" | "mms")[])
       : undefined;
 
-    const results = await service.search({
-      countryCode: query.country ?? "US",
-      areaCode: query.areaCode,
-      capabilities,
-      limit: query.limit ? Number(query.limit) : 20,
-    });
+    try {
+      const results = await service.search({
+        countryCode: query.country ?? "US",
+        areaCode: query.areaCode,
+        capabilities,
+        limit: query.limit ? Number(query.limit) : 20,
+      });
 
-    return { numbers: results };
+      return { numbers: results };
+    } catch (err) {
+      request.log.error({ err }, "Number search failed");
+      return reply.code(500).send({ error: "Search failed" });
+    }
   });
 }
