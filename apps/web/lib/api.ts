@@ -101,7 +101,9 @@ export const api = {
     if (params.limit) q.set("limit", String(params.limit));
 
     return request<{ numbers: AvailableNumber[] }>(
-      `/numbers/search?${q.toString()}`
+      `/numbers/search?${q.toString()}`,
+      {},
+      true
     );
   },
 
