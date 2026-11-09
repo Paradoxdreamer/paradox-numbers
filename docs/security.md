@@ -6,19 +6,20 @@
 - Supabase Auth for user sessions (email + password).
 - Browser uses the anon key only.
 - API uses the service role key for privileged operations.
-- **JWT verification** is enforced on `POST /api/v1/accounts/me`.
-  - Client must send `Authorization: Bearer <access_token>`.
-  - `userId` is extracted from the verified token — never trusted from the body.
-- Webhook signature verification for all provider events (interface ready, not yet wired).
+- **JWT verification** via `requireUserId(request)` in `apps/api/src/lib/auth.ts`.
 
-## Auth helper
+### Protected routes
 
-`apps/api/src/lib/auth.ts` exports `requireUserId(request)`.
-Use this on any route that must be authenticated.
+| Route | Protection |
+|-------|------------|
+| `POST /api/v1/accounts/me` | JWT required. userId from token. |
+| `POST /api/v1/rentals` | JWT required. Account resolved from token (body accountId ignored). |
+| `GET /api/v1/accounts/:id/rentals` | JWT + account membership |
+| `GET /api/v1/rentals/:id` | JWT + membership of rental's account |
 
-## Planned
+### Still open
 
-- Apply `requireUserId` to more routes (rentals, messages, etc.)
-- Rate limiting on public endpoints
-- Audit logging for admin and sensitive actions
-- Row Level Security (RLS) so users can only read their own accounts, rentals, and messages
+- Message list/webhook endpoints (webhook stays public by design; list should be protected)
+- Rate limiting
+- Audit logging
+- Row Level Security (RLS)
