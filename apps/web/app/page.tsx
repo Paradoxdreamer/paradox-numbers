@@ -62,7 +62,8 @@ export default function HomePage() {
         u.email?.split("@")[0] ||
         "Personal";
 
-      const { account } = await api.resolveAccount(u.id, name);
+      // userId is no longer sent — the API extracts it from the JWT
+      const { account } = await api.resolveAccount(name);
       setAccount(account);
 
       const { rentals } = await api.listRentals(account.id);
