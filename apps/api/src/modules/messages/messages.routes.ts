@@ -2,13 +2,6 @@ import type { FastifyInstance } from "fastify";
 import { MessagesService } from "./messages.service";
 import type { IncomingMessage } from "../telecom";
 
-/**
- * Webhook routes.
- *
- * For now we accept a simple JSON payload that matches IncomingMessage.
- * Real providers (Telnyx / Twilio) will later plug in signature verification
- * via the WebhookVerifier interface.
- */
 export async function messagesRoutes(app: FastifyInstance) {
   const service = new MessagesService();
 
@@ -40,7 +33,6 @@ export async function messagesRoutes(app: FastifyInstance) {
     }
   });
 
-  // Convenience: list messages for a rental (useful for dashboard later)
   app.get("/rentals/:rentalId/messages", async (request, reply) => {
     const { rentalId } = request.params as { rentalId: string };
     const query = request.query as { limit?: string };
