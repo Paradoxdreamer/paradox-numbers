@@ -40,7 +40,6 @@ export class AccountsService {
   ): Promise<Account> {
     const supabase = getSupabase();
 
-    // Look for an existing link
     const { data: link, error: linkError } = await supabase
       .from("account_users")
       .select("account_id")
@@ -56,7 +55,6 @@ export class AccountsService {
       if (account) return account;
     }
 
-    // No account yet → create personal + link as owner
     return this.create({
       name: fallbackName,
       type: "personal",
@@ -74,6 +72,25 @@ export class AccountsService {
 
     if (error) throw error;
     return data as Account | null;
+  }
+
+  /**
+   * Returns true if the user is a member (any role) of the account.
+   */
+  async userBelongsToAccount(
+    userId: string,
+    accountId: string
+  ): Promise<boolean> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("account_users")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("account_id", accountId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return !!data;
   }
 
   async linkUser(
