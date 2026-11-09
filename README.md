@@ -6,23 +6,28 @@ Paradox Telecom Services — Flagship virtual number platform.
 
 ## Stack
 
-- Frontend: Next.js (App Router) + TypeScript
+- Frontend: Next.js 15 (App Router) + TypeScript
 - Backend: Fastify + TypeScript
 - Database: Supabase / PostgreSQL
-- Auth: Supabase Auth
+- Auth: Supabase Auth (next)
 - Monorepo: pnpm + Turbo
 
-## Current capabilities (API)
+## What works today (vertical slice)
+
+1. Create an account
+2. Search available US numbers (mock provider)
+3. Rent a number → provisioned + persisted
+4. View your rentals
+5. Ingest inbound SMS via webhook
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /health` | Health check |
-| `GET /api/v1/numbers/search` | Search available numbers (mock provider) |
-| `POST /api/v1/rentals` | Create rental (provisions + persists) |
-| `GET /api/v1/accounts/:accountId/rentals` | List rentals for an account |
-| `GET /api/v1/rentals/:rentalId` | Get single rental |
+| `POST /api/v1/accounts` | Create personal/business account |
+| `GET /api/v1/numbers/search` | Search available numbers |
+| `POST /api/v1/rentals` | Rent + provision a number |
+| `GET /api/v1/accounts/:id/rentals` | List rentals |
 | `POST /api/v1/webhooks/sms` | Ingest incoming SMS |
-| `GET /api/v1/rentals/:rentalId/messages` | List messages for a rental |
+| `GET /api/v1/rentals/:id/messages` | Message history |
 
 ## Getting Started
 
@@ -30,24 +35,38 @@ Paradox Telecom Services — Flagship virtual number platform.
 # 1. Install
 pnpm install
 
-# 2. Copy env and fill Supabase credentials
+# 2. Environment
 cp .env.example .env
+# Fill SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (and the NEXT_PUBLIC_* keys)
 
-# 3. Apply migrations + seed (requires supabase CLI)
-supabase db reset   # or push the migration + seed manually
+# 3. Database
+supabase db reset   # applies migration + seed (includes mock provider)
 
-# 4. Run
+# 4. Run both apps
 pnpm dev
 ```
 
-API runs on `http://localhost:3001` by default.
+- Web: http://localhost:3000
+- API: http://localhost:3001
 
 ## Structure
 
-See `/docs/architecture.md` for the modular layout and data-flow notes.
+```
+apps/
+  api/          Fastify backend (modules: accounts, numbers, rentals, messages, telecom)
+  web/          Next.js customer UI
+packages/
+  shared/       Domain types
+supabase/       Migrations + seed
+docs/           Architecture, security, provider notes
+```
 
-## Team notes
+## Team priorities (next)
 
-- Real providers (Telnyx / Twilio) should implement `TelecomProvider` + `WebhookVerifier`.
-- Auth + RLS policies are next (currently using service-role for simplicity).
-- Frontend dashboard can start consuming the endpoints above immediately.
+1. **Auth** — Supabase Auth + link users to accounts + protect routes
+2. **Real providers** — Telnyx / Twilio adapters (interface already ready)
+3. **Dashboard polish** — message inbox, number details, cancel flow
+4. **Payments** — Paystack (keys already in .env.example)
+5. **RLS** — move off service-role for user-facing reads
+
+See `/docs/architecture.md` for ownership of the data layer.
