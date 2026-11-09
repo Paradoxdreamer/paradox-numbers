@@ -1,45 +1,120 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 import { api, type AvailableNumber, type Account, type Rental } from "../lib/api";
-
-const ACCOUNT_KEY = "paradox_account_id";
+import type { User } from "@supabase/supabase-js";
 
 export default function HomePage() {
+  const [user, setUser] = useState<User | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
-  const [name, setName] = useState("");
   const [numbers, setNumbers] = useState<AvailableNumber[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [areaCode, setAreaCode] = useState("");
 
-  // Restore or create account on first visit
+  // Auth form state
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+
+  // Bootstrap session
   useEffect(() => {
-    const saved = localStorage.getItem(ACCOUNT_KEY);
-    if (saved) {
-      // We only store the id; re-fetch if needed later
-      setAccount({ id: saved, name: "Your account", type: "personal", created_at: "" });
-      api.listRentals(saved).then((r) => setRentals(r.rentals)).catch(() => {});
-    }
+    supabase.auth.getSession().then(({ data }) => {
+      const sessionUser = data.session?.user ?? null;
+      setUser(sessionUser);
+      if (sessionUser) {
+        resolveAccount(sessionUser);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sessionUser = session?.user ?? null;
+      setUser(sessionUser);
+      if (sessionUser) {
+        resolveAccount(sessionUser);
+      } else {
+        setAccount(null);
+        setRentals([]);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  async function handleCreateAccount(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  async function resolveAccount(u: User) {
     setLoading(true);
+    setError(null);
     try {
-      const { account } = await api.createAccount(name || "Personal");
-      localStorage.setItem(ACCOUNT_KEY, account.id);
+      const name =
+        u.user_metadata?.full_name ||
+        u.user_metadata?.name ||
+        u.email?.split("@")[0] ||
+        "Personal";
+
+      const { account } = await api.resolveAccount(u.id, name);
       setAccount(account);
-      setSuccess("Account created. You can now rent numbers.");
+
+      const { rentals } = await api.listRentals(account.id);
+      setRentals(rentals);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create account");
+      setError(err instanceof Error ? err.message : "Failed to load account");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAuth(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setAuthLoading(true);
+
+    try {
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: displayName || undefined,
+            },
+          },
+        });
+        if (error) throw error;
+        setSuccess("Check your email to confirm your account, then sign in.");
+        setMode("signin");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        // onAuthStateChange will handle the rest
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setAccount(null);
+    setRentals([]);
+    setNumbers([]);
   }
 
   async function handleSearch(e: React.FormEvent) {
@@ -67,14 +142,14 @@ export default function HomePage() {
 
   async function handleRent(phoneNumber: string) {
     if (!account) {
-      setError("Create an account first");
+      setError("You need an account to rent numbers");
       return;
     }
     setError(null);
     setSuccess(null);
     setLoading(true);
     try {
-      const result = await api.createRental({
+      await api.createRental({
         accountId: account.id,
         phoneNumber,
       });
@@ -89,6 +164,14 @@ export default function HomePage() {
     }
   }
 
+  if (loading && !user) {
+    return (
+      <div style={styles.page}>
+        <p style={styles.muted}>Loading…</p>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -96,34 +179,90 @@ export default function HomePage() {
           <h1 style={styles.logo}>Paradox Numbers</h1>
           <p style={styles.tagline}>Connecting Possibilities. Beyond Boundaries.</p>
         </div>
-        {account && (
+        {user && (
           <div style={styles.accountBadge}>
-            <span style={{ opacity: 0.6 }}>Account</span>
-            <code style={{ fontSize: 12 }}>{account.id.slice(0, 8)}…</code>
+            <span style={{ opacity: 0.6 }}>{user.email}</span>
+            <button style={styles.linkButton} onClick={handleSignOut}>
+              Sign out
+            </button>
           </div>
         )}
       </header>
 
       <main style={styles.main}>
-        {!account ? (
+        {!user ? (
           <section style={styles.card}>
-            <h2 style={styles.h2}>Get started</h2>
+            <h2 style={styles.h2}>{mode === "signin" ? "Sign in" : "Create account"}</h2>
             <p style={styles.muted}>
-              Create a personal account to rent virtual numbers. Auth will be added next.
+              {mode === "signin"
+                ? "Sign in to manage your virtual numbers."
+                : "Create an account to start renting numbers."}
             </p>
-            <form onSubmit={handleCreateAccount} style={styles.form}>
+
+            <form onSubmit={handleAuth} style={styles.form}>
+              {mode === "signup" && (
+                <input
+                  style={styles.input}
+                  placeholder="Display name (optional)"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+              )}
               <input
                 style={styles.input}
-                placeholder="Your name or business"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                minLength={2}
               />
-              <button style={styles.button} type="submit" disabled={loading}>
-                {loading ? "Creating…" : "Create account"}
+              <input
+                style={styles.input}
+                type="password"
+                placeholder="Password (min 6 characters)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+              <button style={styles.button} type="submit" disabled={authLoading}>
+                {authLoading
+                  ? "Please wait…"
+                  : mode === "signin"
+                    ? "Sign in"
+                    : "Sign up"}
               </button>
             </form>
+
+            <p style={{ ...styles.muted, marginTop: 16, marginBottom: 0 }}>
+              {mode === "signin" ? (
+                <>
+                  No account?{" "}
+                  <button
+                    style={styles.linkButton}
+                    onClick={() => {
+                      setMode("signup");
+                      setError(null);
+                    }}
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    style={styles.linkButton}
+                    onClick={() => {
+                      setMode("signin");
+                      setError(null);
+                    }}
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </p>
           </section>
         ) : (
           <>
@@ -148,7 +287,9 @@ export default function HomePage() {
                       <div>
                         <strong style={{ fontSize: 18 }}>{n.phoneNumber}</strong>
                         <div style={styles.muted}>
-                          {n.capabilities.join(", ")} · ${(n.monthlyCostCents / 100).toFixed(2)}/mo
+                          {n.capabilities.join(", ")} · ${
+                            (n.monthlyCostCents / 100).toFixed(2)
+                          }/mo
                         </div>
                       </div>
                       <button
@@ -173,7 +314,8 @@ export default function HomePage() {
                       <div>
                         <code>{r.id.slice(0, 8)}…</code>
                         <div style={styles.muted}>
-                          {r.status} · ends {new Date(r.current_period_end).toLocaleDateString()}
+                          {r.status} · ends{" "}
+                          {new Date(r.current_period_end).toLocaleDateString()}
                         </div>
                       </div>
                     </li>
@@ -224,7 +366,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: 2,
+    gap: 4,
     fontSize: 13,
   },
   main: {
@@ -282,6 +424,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     padding: "8px 14px",
     fontWeight: 500,
+  },
+  linkButton: {
+    background: "none",
+    border: "none",
+    color: "var(--accent-hover)",
+    padding: 0,
+    fontSize: 13,
+    cursor: "pointer",
   },
   list: {
     listStyle: "none",
