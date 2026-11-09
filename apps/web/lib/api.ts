@@ -54,6 +54,17 @@ export const api = {
     });
   },
 
+  /**
+   * Resolve or create the account for a signed-in user.
+   * Call this right after successful Auth.
+   */
+  resolveAccount(userId: string, name?: string) {
+    return request<{ account: Account }>("/accounts/me", {
+      method: "POST",
+      body: JSON.stringify({ userId, name }),
+    });
+  },
+
   searchNumbers(params: {
     country?: string;
     areaCode?: string;
