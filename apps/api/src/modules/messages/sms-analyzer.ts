@@ -12,7 +12,7 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   LinkedIn: ["linkedin"],
   Microsoft: ["microsoft", "outlook", "live.com"],
   Apple: ["apple", "icloud"],
-  Twitter: ["twitter", "x.com"],
+  Twitter: ["twitter"],
   Snapchat: ["snapchat"],
   TikTok: ["tiktok"],
   Discord: ["discord"],
@@ -25,12 +25,13 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   Unknown: [],
 };
 
+// Labeled patterns first so "Meet me at 12345 Main St" does not match
 const OTP_PATTERNS = [
-  /\b(\d{4,8})\b/,                    // plain 4-8 digit code
   /code[:\s]*(\d{4,8})/i,
   /otp[:\s]*(\d{4,8})/i,
   /verification[:\s]*(\d{4,8})/i,
   /pin[:\s]*(\d{4,8})/i,
+  /\b(\d{4,8})\b/, // generic last
 ];
 
 export interface SmsAnalysis {

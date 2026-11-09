@@ -6,7 +6,17 @@ import { RentalsService } from "../rentals/rentals.service";
 import { AccountsService } from "../accounts/accounts.service";
 import { getProvider } from "../telecom";
 
-const WEBHOOK_SECRET = process.env.SMS_WEBHOOK_SECRET ?? "dev-webhook-secret-change-me";
+const WEBHOOK_SECRET = process.env.SMS_WEBHOOK_SECRET;
+
+if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("SMS_WEBHOOK_SECRET must be set in production");
+}
+
+if (!WEBHOOK_SECRET) {
+  console.warn("[messages] SMS_WEBHOOK_SECRET not set — using insecure dev fallback");
+}
+
+const EFFECTIVE_SECRET = WEBHOOK_SECRET ?? "dev-webhook-secret-change-me";
 
 export async function messagesRoutes(app: FastifyInstance) {
   const service = new MessagesService();
@@ -15,7 +25,7 @@ export async function messagesRoutes(app: FastifyInstance) {
 
   app.post("/webhooks/sms", async (request, reply) => {
     const secret = request.headers["x-webhook-secret"];
-    if (secret !== WEBHOOK_SECRET) {
+    if (secret !== EFFECTIVE_SECRET) {
       return reply.code(401).send({ error: "Invalid webhook secret" });
     }
 
