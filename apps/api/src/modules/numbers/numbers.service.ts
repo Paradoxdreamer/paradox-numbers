@@ -5,12 +5,6 @@ import type { Number as DbNumber } from "@paradox/shared";
 export class NumbersService {
   constructor(private provider: TelecomProvider) {}
 
-  /**
-   * Search available numbers.
-   * 1. Ask the telecom provider for live inventory.
-   * 2. Best-effort sync of *new* numbers into our `numbers` table.
-   * 3. Return the provider results.
-   */
   async search(params: {
     countryCode: string;
     areaCode?: string;
@@ -19,8 +13,6 @@ export class NumbersService {
   }): Promise<AvailableNumber[]> {
     const results = await this.provider.searchNumbers(params);
 
-    // Best-effort: only insert numbers we have never seen before.
-    // Never overwrite an existing status (assigned / reserved / etc.).
     try {
       await this.syncNewToInventory(results);
     } catch (err) {
@@ -30,9 +22,6 @@ export class NumbersService {
     return results;
   }
 
-  /**
-   * Look up a number we already know about in the database.
-   */
   async findByPhoneNumber(phoneNumber: string): Promise<DbNumber | null> {
     const supabase = getSupabase();
     const { data, error } = await supabase
@@ -45,17 +34,27 @@ export class NumbersService {
     return data as DbNumber | null;
   }
 
-  /**
-   * Mark a number as assigned (after successful provision).
-   */
-  async markAssigned(numberId: string): Promise<void> {
+  async claim(numberId: string): Promise<boolean> {
     const supabase = getSupabase();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("numbers")
       .update({ status: "assigned", updated_at: new Date().toISOString() })
-      .eq("id", numberId);
+      .eq("id", numberId)
+      .in("status", ["available", "reserved"])
+      .select("id")
+      .maybeSingle();
 
     if (error) throw error;
+    return !!data;
+  }
+
+  async releaseClaim(numberId: string): Promise<void> {
+    const supabase = getSupabase();
+    await supabase
+      .from("numbers")
+      .update({ status: "available", updated_at: new Date().toISOString() })
+      .eq("id", numberId)
+      .eq("status", "assigned");
   }
 
   private async syncNewToInventory(numbers: AvailableNumber[]): Promise<void> {
@@ -63,7 +62,6 @@ export class NumbersService {
 
     const supabase = getSupabase();
 
-    // Resolve the provider row (create if missing).
     const providerName = this.provider.name;
     let { data: provider } = await supabase
       .from("providers")
@@ -84,7 +82,6 @@ export class NumbersService {
 
     const phoneNumbers = numbers.map((n) => n.phoneNumber);
 
-    // Which of these already exist?
     const { data: existing } = await supabase
       .from("numbers")
       .select("phone_number")
