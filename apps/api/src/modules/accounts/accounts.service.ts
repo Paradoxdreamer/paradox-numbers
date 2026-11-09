@@ -23,21 +23,45 @@ export class AccountsService {
 
     if (error) throw error;
 
-    // Optionally attach the creator as owner
     if (input.userId) {
-      const { error: linkError } = await supabase.from("account_users").insert({
-        account_id: account.id,
-        user_id: input.userId,
-        role: "owner",
-      });
-
-      if (linkError) {
-        // Non-fatal for now — account still exists
-        console.error("[AccountsService] failed to link user", linkError);
-      }
+      await this.linkUser(account.id, input.userId, "owner");
     }
 
     return account as Account;
+  }
+
+  /**
+   * Get the primary account for a user, or create a personal one if none exists.
+   * This is the main entry point after Auth.
+   */
+  async getOrCreateForUser(
+    userId: string,
+    fallbackName = "Personal"
+  ): Promise<Account> {
+    const supabase = getSupabase();
+
+    // Look for an existing link
+    const { data: link, error: linkError } = await supabase
+      .from("account_users")
+      .select("account_id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (linkError) throw linkError;
+
+    if (link) {
+      const account = await this.getById(link.account_id);
+      if (account) return account;
+    }
+
+    // No account yet → create personal + link as owner
+    return this.create({
+      name: fallbackName,
+      type: "personal",
+      userId,
+    });
   }
 
   async getById(accountId: string): Promise<Account | null> {
@@ -50,5 +74,23 @@ export class AccountsService {
 
     if (error) throw error;
     return data as Account | null;
+  }
+
+  async linkUser(
+    accountId: string,
+    userId: string,
+    role: "owner" | "admin" | "member" = "member"
+  ): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase.from("account_users").upsert(
+      {
+        account_id: accountId,
+        user_id: userId,
+        role,
+      },
+      { onConflict: "account_id,user_id" }
+    );
+
+    if (error) throw error;
   }
 }
