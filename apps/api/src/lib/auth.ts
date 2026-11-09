@@ -1,10 +1,28 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { FastifyRequest } from "fastify";
 
-/**
- * Verifies a Supabase JWT and returns the authenticated user id.
- * Throws if the token is missing or invalid.
- */
+let authClient: SupabaseClient | null = null;
+
+function getAuthClient(): SupabaseClient {
+  if (authClient) return authClient;
+
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error("Supabase URL or anon key not configured on API");
+  }
+
+  authClient = createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  return authClient;
+}
+
 export async function requireUserId(request: FastifyRequest): Promise<string> {
   const header = request.headers.authorization;
 
@@ -17,22 +35,7 @@ export async function requireUserId(request: FastifyRequest): Promise<string> {
     throw new AuthError("Empty bearer token");
   }
 
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Supabase URL or anon key not configured on API");
-  }
-
-  // Use the anon key client only to validate the JWT.
-  // We never use this client for privileged DB operations.
-  const supabase = createClient(url, anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
+  const supabase = getAuthClient();
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user) {
