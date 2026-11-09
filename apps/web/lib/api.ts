@@ -64,18 +64,19 @@ export type Rental = {
   current_period_end: string;
 };
 
-export const api = {
-  createAccount(name: string, type: "personal" | "business" = "personal") {
-    return request<{ account: Account }>("/accounts", {
-      method: "POST",
-      body: JSON.stringify({ name, type }),
-    });
-  },
+export type Message = {
+  id: string;
+  rental_id: string;
+  from_number: string;
+  body: string;
+  received_at: string;
+  analysis?: {
+    service: string;
+    code: string | null;
+  };
+};
 
-  /**
-   * Resolve or create the account for the currently signed-in user.
-   * Requires a valid session. userId is taken from the JWT on the server.
-   */
+export const api = {
   resolveAccount(name?: string) {
     return request<{ account: Account }>(
       "/accounts/me",
@@ -104,10 +105,6 @@ export const api = {
     );
   },
 
-  /**
-   * Rent a number for the authenticated user's account.
-   * accountId is resolved server-side from the JWT.
-   */
   createRental(input: { phoneNumber: string; webhookUrl?: string }) {
     return request<{ rental: Rental; provision: { providerNumberId: string } }>(
       "/rentals",
@@ -122,6 +119,14 @@ export const api = {
   listRentals(accountId: string) {
     return request<{ rentals: Rental[] }>(
       `/accounts/${accountId}/rentals`,
+      {},
+      true
+    );
+  },
+
+  listMessages(rentalId: string) {
+    return request<{ messages: Message[] }>(
+      `/rentals/${rentalId}/messages`,
       {},
       true
     );

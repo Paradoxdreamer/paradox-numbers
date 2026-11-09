@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { api, type AvailableNumber, type Account, type Rental } from "../lib/api";
+import { api, type AvailableNumber, type Account, type Rental, type Message } from "../lib/api";
 import type { User } from "@supabase/supabase-js";
 
 export default function HomePage() {
@@ -10,6 +10,8 @@ export default function HomePage() {
   const [account, setAccount] = useState<Account | null>(null);
   const [numbers, setNumbers] = useState<AvailableNumber[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedRental, setSelectedRental] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -43,6 +45,8 @@ export default function HomePage() {
       } else {
         setAccount(null);
         setRentals([]);
+        setMessages([]);
+        setSelectedRental(null);
         setLoading(false);
       }
     });
@@ -112,6 +116,8 @@ export default function HomePage() {
     setAccount(null);
     setRentals([]);
     setNumbers([]);
+    setMessages([]);
+    setSelectedRental(null);
   }
 
   async function handleSearch(e: React.FormEvent) {
@@ -146,7 +152,6 @@ export default function HomePage() {
     setSuccess(null);
     setLoading(true);
     try {
-      // accountId is resolved server-side from the JWT
       await api.createRental({ phoneNumber });
       setSuccess(`Rented ${phoneNumber} successfully.`);
       setNumbers((prev) => prev.filter((n) => n.phoneNumber !== phoneNumber));
@@ -156,6 +161,18 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Failed to rent number");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openInbox(rentalId: string) {
+    setSelectedRental(rentalId);
+    setMessages([]);
+    setError(null);
+    try {
+      const { messages } = await api.listMessages(rentalId);
+      setMessages(messages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load messages");
     }
   }
 
@@ -313,9 +330,46 @@ export default function HomePage() {
                           {new Date(r.current_period_end).toLocaleDateString()}
                         </div>
                       </div>
+                      <button
+                        style={styles.buttonSecondary}
+                        onClick={() => openInbox(r.id)}
+                      >
+                        Inbox
+                      </button>
                     </li>
                   ))}
                 </ul>
+              </section>
+            )}
+
+            {selectedRental && (
+              <section style={styles.card}>
+                <h2 style={styles.h2}>Inbox</h2>
+                {messages.length === 0 ? (
+                  <p style={styles.muted}>No messages yet for this number.</p>
+                ) : (
+                  <ul style={styles.list}>
+                    {messages.map((m) => (
+                      <li key={m.id} style={styles.listItem}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <strong>{m.analysis?.service ?? "Unknown"}</strong>
+                            {m.analysis?.code && (
+                              <code style={{ background: "var(--surface-2)", padding: "2px 8px", borderRadius: 4 }}>
+                                {m.analysis.code}
+                              </code>
+                            )}
+                          </div>
+                          <div style={styles.muted}>{m.from_number}</div>
+                          <div style={{ marginTop: 4, fontSize: 14 }}>{m.body}</div>
+                          <div style={{ ...styles.muted, marginTop: 4, fontSize: 12 }}>
+                            {new Date(m.received_at).toLocaleString()}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             )}
           </>
