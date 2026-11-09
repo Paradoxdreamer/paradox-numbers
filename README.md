@@ -9,22 +9,23 @@ Paradox Telecom Services — Flagship virtual number platform.
 - Frontend: Next.js 15 (App Router) + TypeScript
 - Backend: Fastify + TypeScript
 - Database: Supabase / PostgreSQL
-- Auth: Supabase Auth (email + password)
+- Auth: Supabase Auth (email + password) + JWT verification on API
 - Monorepo: pnpm + Turbo
 
 ## What works today
 
 1. **Sign up / Sign in** with email + password (Supabase Auth)
 2. Automatic account creation + linking on first login
-3. Search available US numbers (mock provider)
-4. Rent a number → provisioned + persisted
-5. View your rentals
-6. Ingest inbound SMS via webhook
+3. **JWT-protected** account resolution (`/accounts/me`)
+4. Search available US numbers (mock provider)
+5. Rent a number → provisioned + persisted
+6. View your rentals
+7. Ingest inbound SMS via webhook
 
 | Endpoint | Description |
 |----------|-------------|
 | `POST /api/v1/accounts` | Create account |
-| `POST /api/v1/accounts/me` | Resolve/create account for authenticated user |
+| `POST /api/v1/accounts/me` | Resolve/create account (**requires JWT**) |
 | `GET /api/v1/numbers/search` | Search available numbers |
 | `POST /api/v1/rentals` | Rent + provision a number |
 | `GET /api/v1/accounts/:id/rentals` | List rentals |
@@ -69,10 +70,10 @@ docs/
 
 ## Team priorities (next)
 
-1. **JWT verification on API** — stop trusting `userId` in the body, verify Supabase JWT
-2. **Real providers** — Telnyx / Twilio adapters
-3. **Message inbox UI** + number details + cancel flow
-4. **Payments** — Paystack
-5. **RLS policies** — move off service-role for user-facing reads
+1. Apply JWT protection to more routes (rentals, messages)
+2. Real providers — Telnyx / Twilio adapters
+3. Message inbox UI + number details + cancel flow
+4. Payments — Paystack
+5. RLS policies
 
 See `/docs/architecture.md` and `/docs/security.md`.
