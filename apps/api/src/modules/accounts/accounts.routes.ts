@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { AccountsService } from "./accounts.service";
+import { requireUserId, AuthError } from "../../lib/auth";
 
 export async function accountsRoutes(app: FastifyInstance) {
   const service = new AccountsService();
@@ -29,29 +30,25 @@ export async function accountsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Resolve (or create) the account for an authenticated user.
-   * Called by the web app right after sign-in / sign-up.
-   *
-   * Body: { userId: string, name?: string }
-   * In a later pass we will verify the JWT instead of trusting the body.
+   * Resolve (or create) the account for the authenticated user.
+   * Requires a valid Supabase JWT in the Authorization header.
+   * userId is taken from the token — never from the body.
    */
   app.post("/accounts/me", async (request, reply) => {
-    const body = request.body as {
-      userId?: string;
-      name?: string;
-    };
-
-    if (!body.userId) {
-      return reply.code(400).send({ error: "userId is required" });
-    }
-
     try {
+      const userId = await requireUserId(request);
+      const body = request.body as { name?: string } | null;
+
       const account = await service.getOrCreateForUser(
-        body.userId,
-        body.name ?? "Personal"
+        userId,
+        body?.name ?? "Personal"
       );
+
       return { account };
     } catch (err) {
+      if (err instanceof AuthError) {
+        return reply.code(401).send({ error: err.message });
+      }
       request.log.error({ err }, "Get-or-create account failed");
       return reply.code(500).send({ error: "Failed to resolve account" });
     }
