@@ -126,6 +126,12 @@ export const api = {
     );
   },
 
+  initiatePayment(rentalId: string) {
+    return request<{
+      payment: { reference: string; amountCents: number; checkoutUrl: string };
+    }>(`/billing/initiate/${rentalId}`, { method: "POST" }, true);
+  },
+
   listMessages(rentalId: string) {
     return request<{ messages: Message[] }>(
       `/rentals/${rentalId}/messages`,
