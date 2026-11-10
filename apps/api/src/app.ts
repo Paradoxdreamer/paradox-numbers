@@ -3,13 +3,13 @@ import { numbersRoutes } from "./modules/numbers/numbers.routes";
 import { rentalsRoutes } from "./modules/rentals/rentals.routes";
 import { messagesRoutes } from "./modules/messages/messages.routes";
 import { accountsRoutes } from "./modules/accounts/accounts.routes";
+import { billingRoutes } from "./modules/billing/billing.routes";
 
 export async function buildApp() {
   const app = Fastify({
     logger: true,
   });
 
-  // Basic CORS so the Next.js app can talk to the API in local dev
   app.addHook("onRequest", async (request, reply) => {
     reply.header("Access-Control-Allow-Origin", process.env.NEXT_PUBLIC_APP_URL ?? "*");
     reply.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
@@ -28,6 +28,7 @@ export async function buildApp() {
   await app.register(numbersRoutes, { prefix: "/api/v1" });
   await app.register(rentalsRoutes, { prefix: "/api/v1" });
   await app.register(messagesRoutes, { prefix: "/api/v1" });
+  await app.register(billingRoutes, { prefix: "/api/v1" });
 
   return app;
 }
