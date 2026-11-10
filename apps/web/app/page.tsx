@@ -174,6 +174,21 @@ export default function HomePage() {
     }
   }
 
+  async function handlePay(rentalId: string) {
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+    try {
+      const { payment } = await api.initiatePayment(rentalId);
+      setSuccess(`Payment started. Reference: ${payment.reference}`);
+      window.open(payment.checkoutUrl, "_blank");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start payment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function openInbox(rentalId: string) {
     setSelectedRental(rentalId);
     setMessages([]);
@@ -340,12 +355,23 @@ export default function HomePage() {
                           {new Date(r.current_period_end).toLocaleDateString()}
                         </div>
                       </div>
-                      <button
-                        style={styles.buttonSecondary}
-                        onClick={() => openInbox(r.id)}
-                      >
-                        Inbox
-                      </button>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          style={styles.buttonSecondary}
+                          onClick={() => openInbox(r.id)}
+                        >
+                          Inbox
+                        </button>
+                        {r.status === "pending_payment" && (
+                          <button
+                            style={styles.button}
+                            onClick={() => handlePay(r.id)}
+                            disabled={loading}
+                          >
+                            Pay
+                          </button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
