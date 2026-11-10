@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type { FastifyRequest } from "fastify";
 
 let authClient: SupabaseClient | null = null;
@@ -23,7 +23,7 @@ function getAuthClient(): SupabaseClient {
   return authClient;
 }
 
-export async function requireUserId(request: FastifyRequest): Promise<string> {
+export async function requireAuthenticatedUser(request: FastifyRequest): Promise<User> {
   const header = request.headers.authorization;
 
   if (!header || !header.startsWith("Bearer ")) {
@@ -35,14 +35,17 @@ export async function requireUserId(request: FastifyRequest): Promise<string> {
     throw new AuthError("Empty bearer token");
   }
 
-  const supabase = getAuthClient();
-  const { data, error } = await supabase.auth.getUser(token);
-
+  const { data, error } = await getAuthClient().auth.getUser(token);
   if (error || !data.user) {
     throw new AuthError("Invalid or expired token");
   }
 
-  return data.user.id;
+  return data.user;
+}
+
+export async function requireUserId(request: FastifyRequest): Promise<string> {
+  const user = await requireAuthenticatedUser(request);
+  return user.id;
 }
 
 export class AuthError extends Error {
