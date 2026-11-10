@@ -108,7 +108,7 @@ export const api = {
   },
 
   createRental(input: { phoneNumber: string; webhookUrl?: string }) {
-    return request<{ rental: Rental; provision: { providerNumberId: string } }>(
+    return request<{ rental: Rental }>(
       "/rentals",
       {
         method: "POST",
@@ -122,14 +122,6 @@ export const api = {
     return request<{ rentals: Rental[] }>(
       `/accounts/${accountId}/rentals`,
       {},
-      true
-    );
-  },
-
-  confirmPayment(rentalId: string) {
-    return request<{ rental: Rental }>(
-      `/billing/confirm/${rentalId}`,
-      { method: "POST" },
       true
     );
   },
