@@ -158,7 +158,7 @@ export async function billingRoutes(app: FastifyInstance) {
           amount: number.monthly_cost_cents,
           currency: PAYSTACK_CURRENCY,
           reference,
-          callback_url: `${APP_URL}/payment/callback`,
+          callback_url: APP_URL,
           metadata: { rentalId, accountId: rental.account_id },
         }),
       });
@@ -253,6 +253,11 @@ export async function billingRoutes(app: FastifyInstance) {
         expectedCurrency: payment.currency,
       }, "Paystack transaction did not match the pending payment");
       return reply.code(400).send({ error: "Payment details do not match" });
+    }
+
+    if (payment.status !== "pending" && payment.status !== "succeeded") {
+      request.log.warn({ reference, status: payment.status }, "Ignoring successful event for a non-pending payment");
+      return reply.code(409).send({ error: "Payment is not pending" });
     }
 
     if (payment.status !== "succeeded") {
