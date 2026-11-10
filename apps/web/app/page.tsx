@@ -163,12 +163,30 @@ export default function HomePage() {
     setLoading(true);
     try {
       await api.createRental({ phoneNumber });
-      setSuccess(`Rented ${phoneNumber} successfully.`);
+      setSuccess(`Rental created for ${phoneNumber}. Status: pending payment.`);
       setNumbers((prev) => prev.filter((n) => n.phoneNumber !== phoneNumber));
       const { rentals } = await api.listRentals(account.id);
       setRentals(rentals);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to rent number");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleConfirm(rentalId: string) {
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+    try {
+      const { rental } = await api.confirmPayment(rentalId);
+      setSuccess(`Rental is now ${rental.status}.`);
+      if (account) {
+        const { rentals } = await api.listRentals(account.id);
+        setRentals(rentals);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Confirmation failed");
     } finally {
       setLoading(false);
     }
@@ -340,12 +358,23 @@ export default function HomePage() {
                           {new Date(r.current_period_end).toLocaleDateString()}
                         </div>
                       </div>
-                      <button
-                        style={styles.buttonSecondary}
-                        onClick={() => openInbox(r.id)}
-                      >
-                        Inbox
-                      </button>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          style={styles.buttonSecondary}
+                          onClick={() => openInbox(r.id)}
+                        >
+                          Inbox
+                        </button>
+                        {r.status === "pending_payment" && (
+                          <button
+                            style={styles.button}
+                            onClick={() => handleConfirm(r.id)}
+                            disabled={loading}
+                          >
+                            Confirm payment
+                          </button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
