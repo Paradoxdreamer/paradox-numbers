@@ -6,7 +6,7 @@ import { AccountsService } from "../accounts/accounts.service";
 
 const WEBHOOK_URL =
   process.env.SMS_WEBHOOK_URL ??
-  `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/v1/webhooks/sms`;
+  "http://localhost:3001/api/v1/webhooks/sms";
 
 export async function rentalsRoutes(app: FastifyInstance) {
   const service = new RentalsService(getProvider("mock"));
