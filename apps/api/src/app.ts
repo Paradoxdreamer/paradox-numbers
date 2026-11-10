@@ -8,7 +8,23 @@ import { billingRoutes } from "./modules/billing/billing.routes";
 export async function buildApp() {
   const app = Fastify({
     logger: true,
+    bodyLimit: 1_048_576,
   });
+
+  // Preserve the exact bytes Paystack signed; re-serializing parsed JSON breaks HMAC validation.
+  app.removeContentTypeParser("application/json");
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (request, body, done) => {
+      (request as typeof request & { rawBody?: Buffer }).rawBody = body;
+      try {
+        done(null, JSON.parse(body.toString("utf8")));
+      } catch (error) {
+        done(error as Error, undefined);
+      }
+    }
+  );
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("Access-Control-Allow-Origin", process.env.NEXT_PUBLIC_APP_URL ?? "*");
