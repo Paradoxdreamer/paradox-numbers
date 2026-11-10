@@ -126,6 +126,14 @@ export const api = {
     );
   },
 
+  confirmPayment(rentalId: string) {
+    return request<{ rental: Rental }>(
+      `/billing/confirm/${rentalId}`,
+      { method: "POST" },
+      true
+    );
+  },
+
   listMessages(rentalId: string) {
     return request<{ messages: Message[] }>(
       `/rentals/${rentalId}/messages`,
