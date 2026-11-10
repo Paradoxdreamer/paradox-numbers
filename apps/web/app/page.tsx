@@ -174,24 +174,6 @@ export default function HomePage() {
     }
   }
 
-  async function handleConfirm(rentalId: string) {
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-    try {
-      const { rental } = await api.confirmPayment(rentalId);
-      setSuccess(`Rental is now ${rental.status}.`);
-      if (account) {
-        const { rentals } = await api.listRentals(account.id);
-        setRentals(rentals);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Confirmation failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function openInbox(rentalId: string) {
     setSelectedRental(rentalId);
     setMessages([]);
@@ -358,23 +340,12 @@ export default function HomePage() {
                           {new Date(r.current_period_end).toLocaleDateString()}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          style={styles.buttonSecondary}
-                          onClick={() => openInbox(r.id)}
-                        >
-                          Inbox
-                        </button>
-                        {r.status === "pending_payment" && (
-                          <button
-                            style={styles.button}
-                            onClick={() => handleConfirm(r.id)}
-                            disabled={loading}
-                          >
-                            Confirm payment
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        style={styles.buttonSecondary}
+                        onClick={() => openInbox(r.id)}
+                      >
+                        Inbox
+                      </button>
                     </li>
                   ))}
                 </ul>
