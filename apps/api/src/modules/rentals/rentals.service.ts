@@ -3,6 +3,16 @@ import { getSupabase } from "../../lib/supabase";
 import { NumbersService } from "../numbers/numbers.service";
 import type { Rental } from "@paradox/shared";
 
+export type RentalStatus =
+  | "pending_payment"
+  | "provisioning"
+  | "active"
+  | "past_due"
+  | "suspended"
+  | "released"
+  | "cancelled"
+  | "expired";
+
 export interface CreateRentalInput {
   accountId: string;
   phoneNumber: string;
@@ -12,7 +22,7 @@ export interface CreateRentalInput {
 
 export interface CreateRentalResult {
   rental: Rental;
-  provision: ProvisionResult;
+  provision?: ProvisionResult;
 }
 
 export class RentalsService {
@@ -45,17 +55,6 @@ export class RentalsService {
       throw new Error(`Number ${input.phoneNumber} was just taken`);
     }
 
-    let provision: ProvisionResult;
-    try {
-      provision = await this.provider.provisionNumber({
-        phoneNumber: input.phoneNumber,
-        webhookUrl: input.webhookUrl,
-      });
-    } catch (err) {
-      await this.numbersService.releaseClaim(number.id);
-      throw err;
-    }
-
     const now = new Date();
     const periodEnd = new Date(now);
     periodEnd.setDate(periodEnd.getDate() + periodDays);
@@ -65,7 +64,7 @@ export class RentalsService {
       .insert({
         account_id: input.accountId,
         number_id: number.id,
-        status: "active",
+        status: "pending_payment",
         started_at: now.toISOString(),
         current_period_start: now.toISOString(),
         current_period_end: periodEnd.toISOString(),
@@ -75,20 +74,67 @@ export class RentalsService {
       .single();
 
     if (rentalError) {
-      try {
-        await this.provider.releaseNumber({
-          phoneNumber: input.phoneNumber,
-          providerNumberId: provision.providerNumberId,
-        });
-      } catch {
-        // best effort
-      }
       await this.numbersService.releaseClaim(number.id);
       throw rentalError;
     }
 
     return {
       rental: rental as Rental,
+    };
+  }
+
+  async confirmPaymentAndProvision(
+    rentalId: string,
+    webhookUrl: string
+  ): Promise<{ rental: Rental; provision: ProvisionResult }> {
+    const supabase = getSupabase();
+
+    const rental = await this.getById(rentalId);
+    if (!rental) throw new Error("Rental not found");
+    if (rental.status !== "pending_payment") {
+      throw new Error(`Cannot provision rental in status: ${rental.status}`);
+    }
+
+    await supabase
+      .from("rentals")
+      .update({ status: "provisioning", updated_at: new Date().toISOString() })
+      .eq("id", rentalId);
+
+    const { data: numberRow } = await supabase
+      .from("numbers")
+      .select("phone_number")
+      .eq("id", rental.number_id)
+      .single();
+
+    if (!numberRow) {
+      throw new Error("Number row missing for rental");
+    }
+
+    let provision: ProvisionResult;
+    try {
+      provision = await this.provider.provisionNumber({
+        phoneNumber: numberRow.phone_number,
+        webhookUrl,
+      });
+    } catch (err) {
+      await supabase
+        .from("rentals")
+        .update({ status: "pending_payment", updated_at: new Date().toISOString() })
+        .eq("id", rentalId);
+      throw err;
+    }
+
+    const { data: updated, error } = await supabase
+      .from("rentals")
+      .update({ status: "active", updated_at: new Date().toISOString() })
+      .eq("id", rentalId)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+
+    return {
+      rental: updated as Rental,
       provision,
     };
   }
