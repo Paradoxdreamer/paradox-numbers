@@ -181,7 +181,7 @@ export default function HomePage() {
     try {
       const { payment } = await api.initiatePayment(rentalId);
       setSuccess(`Payment started. Reference: ${payment.reference}`);
-      window.open(payment.checkoutUrl, "_blank");
+      window.location.assign(payment.checkoutUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start payment");
     } finally {
