@@ -91,14 +91,19 @@ export class RentalsService {
 
     const rental = await this.getById(rentalId);
     if (!rental) throw new Error("Rental not found");
-    if (rental.status !== "pending_payment") {
-      throw new Error(`Cannot provision rental in status: ${rental.status}`);
-    }
 
-    await supabase
+    const { data: claimed, error: claimError } = await supabase
       .from("rentals")
       .update({ status: "provisioning", updated_at: new Date().toISOString() })
-      .eq("id", rentalId);
+      .eq("id", rentalId)
+      .eq("status", "pending_payment")
+      .select("id")
+      .maybeSingle();
+
+    if (claimError) throw claimError;
+    if (!claimed) {
+      throw new Error("Rental is no longer pending_payment");
+    }
 
     const { data: numberRow } = await supabase
       .from("numbers")
@@ -117,10 +122,7 @@ export class RentalsService {
         webhookUrl,
       });
     } catch (err) {
-      await supabase
-        .from("rentals")
-        .update({ status: "pending_payment", updated_at: new Date().toISOString() })
-        .eq("id", rentalId);
+      // Leave in provisioning for reconciliation
       throw err;
     }
 
