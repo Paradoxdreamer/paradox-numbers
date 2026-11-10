@@ -49,8 +49,7 @@ function verifyPaystackSignature(
   if (!rawBody) return false;
 
   // Current signing-secret format: timestamp + "." + exact raw body.
-  if (modernSignature) {
-    if (!PAYSTACK_WEBHOOK_SECRET) return false;
+  if (modernSignature && PAYSTACK_WEBHOOK_SECRET) {
     const fields = modernSignature.split(",");
     const timestampField = fields.find((field) => field.trim().startsWith("t="));
     const timestamp = Number(timestampField?.trim().slice(2));
