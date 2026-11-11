@@ -21,7 +21,7 @@ export default function HomePage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [areaCode, setAreaCode] = useState("");
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -81,6 +81,42 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Failed to load account");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset`,
+      });
+      if (error) throw error;
+      setSuccess("Password reset link sent. Check your email.");
+      setMode("signin");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send reset link");
+    } finally {
+      setAuthLoading(false);
     }
   }
 
@@ -229,47 +265,87 @@ export default function HomePage() {
       <main style={styles.main}>
         {!user ? (
           <section style={styles.card}>
-            <h2 style={styles.h2}>{mode === "signin" ? "Sign in" : "Create account"}</h2>
+            <h2 style={styles.h2}>
+              {mode === "signin"
+                ? "Sign in"
+                : mode === "signup"
+                  ? "Create account"
+                  : "Reset password"}
+            </h2>
             <p style={styles.muted}>
               {mode === "signin"
                 ? "Sign in to manage your virtual numbers."
-                : "Create an account to start renting numbers."}
+                : mode === "signup"
+                  ? "Create an account to start renting numbers."
+                  : "Enter your email and we’ll send a reset link."}
             </p>
 
-            <form onSubmit={handleAuth} style={styles.form}>
-              {mode === "signup" && (
+            {mode !== "forgot" && (
+              <>
+                <button
+                  style={{ ...styles.buttonSecondary, width: "100%", marginBottom: 16 }}
+                  onClick={handleGoogle}
+                  disabled={authLoading}
+                  type="button"
+                >
+                  Continue with Google
+                </button>
+                <div style={styles.divider}>
+                  <span>OR</span>
+                </div>
+              </>
+            )}
+
+            {mode === "forgot" ? (
+              <form onSubmit={handleForgot} style={styles.form}>
                 <input
                   style={styles.input}
-                  placeholder="Display name (optional)"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
-              )}
-              <input
-                style={styles.input}
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                style={styles.input}
-                type="password"
-                placeholder="Password (min 6 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-              <button style={styles.button} type="submit" disabled={authLoading}>
-                {authLoading
-                  ? "Please wait…"
-                  : mode === "signin"
-                    ? "Sign in"
-                    : "Sign up"}
-              </button>
-            </form>
+                <button style={styles.button} type="submit" disabled={authLoading}>
+                  {authLoading ? "Sending…" : "Send reset link"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleAuth} style={styles.form}>
+                {mode === "signup" && (
+                  <input
+                    style={styles.input}
+                    placeholder="Display name (optional)"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                  />
+                )}
+                <input
+                  style={styles.input}
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <input
+                  style={styles.input}
+                  type="password"
+                  placeholder="Password (min 6 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button style={styles.button} type="submit" disabled={authLoading}>
+                  {authLoading
+                    ? "Please wait…"
+                    : mode === "signin"
+                      ? "Sign in"
+                      : "Sign up"}
+                </button>
+              </form>
+            )}
 
             <p style={{ ...styles.muted, marginTop: 16, marginBottom: 0 }}>
               {mode === "signin" ? (
@@ -284,8 +360,18 @@ export default function HomePage() {
                   >
                     Sign up
                   </button>
+                  {" · "}
+                  <button
+                    style={styles.linkButton}
+                    onClick={() => {
+                      setMode("forgot");
+                      setError(null);
+                    }}
+                  >
+                    Forgot password
+                  </button>
                 </>
-              ) : (
+              ) : mode === "signup" ? (
                 <>
                   Already have an account?{" "}
                   <button
@@ -296,6 +382,18 @@ export default function HomePage() {
                     }}
                   >
                     Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    style={styles.linkButton}
+                    onClick={() => {
+                      setMode("signin");
+                      setError(null);
+                    }}
+                  >
+                    Back to sign in
                   </button>
                 </>
               )}
@@ -517,6 +615,15 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 0,
     fontSize: 13,
     cursor: "pointer",
+  },
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    margin: "16px 0",
+    color: "var(--text-muted)",
+    fontSize: 12,
+    letterSpacing: "0.05em",
   },
   list: {
     listStyle: "none",
