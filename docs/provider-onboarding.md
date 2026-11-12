@@ -6,35 +6,35 @@
 |------|--------|--------|
 | `mock` | Ready | Local inventory, no carrier calls |
 | `telnyx` | Ready | Search / order / release via Telnyx v2 API |
-| `twilio` | Not implemented | Stub throws |
+| `twilio` | Ready | Search / buy / release via Twilio 2010 API |
 
 ## Switching providers
 
 ```bash
-TELECOM_PROVIDER=telnyx   # or mock | twilio
+TELECOM_PROVIDER=twilio   # or mock | telnyx
 ```
 
-`getProvider()` reads this env (default `mock`).
+`getProvider()` reads this env (default `mock`). All routes use `getProvider()` — no hard-coded mock.
 
 ## Telnyx checklist
 
-1. Create a Telnyx account and API key.
-2. Create a **Messaging Profile** and set its inbound webhook to:
-   `https://<your-api-host>/api/v1/webhooks/sms`
-   (and pass `x-webhook-secret` via a proxy or Telnyx custom header if available).
-3. Set env:
-   ```
-   TELECOM_PROVIDER=telnyx
-   TELNYX_API_KEY=...
-   TELNYX_MESSAGING_PROFILE_ID=...
-   ```
-4. Confirm **reseller / compliance** posture (A2P 10DLC for US SMS) before production traffic.
-5. Search is free/read-only. Orders charge your Telnyx balance.
+1. API key + Messaging Profile.
+2. Profile inbound webhook → `https://<api>/api/v1/webhooks/sms`.
+3. Env: `TELNYX_API_KEY`, `TELNYX_MESSAGING_PROFILE_ID`.
+4. A2P / compliance before production US SMS.
 
-## Interface contract
+## Twilio checklist
 
-All adapters implement `TelecomProvider` in
-`apps/api/src/modules/telecom/provider.interface.ts`.
+1. Account SID + Auth Token.
+2. Env: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`.
+3. Provision sets `SmsUrl` to `SMS_WEBHOOK_URL` automatically.
+4. Upgrade trial account before buying numbers.
 
-Optional: implement `WebhookVerifier` for signature verification + payload parsing
-(see `TelnyxWebhookVerifier`).
+## Rental cancel / release
+
+| Status | Action | Effect |
+|--------|--------|--------|
+| `pending_payment` | Cancel | Inventory free (no carrier call) |
+| `active` / `provisioning` | Release | Provider delete + inventory free |
+
+Endpoint: `POST /api/v1/rentals/:id/cancel`
