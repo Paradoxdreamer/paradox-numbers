@@ -1,25 +1,41 @@
 import type { TelecomProvider } from "./provider.interface";
 import { MockProvider } from "./providers/mock.provider";
+import { TelnyxProvider } from "./providers/telnyx.provider";
 
 export type ProviderName = "mock" | "telnyx" | "twilio";
 
 const providers: Record<ProviderName, () => TelecomProvider> = {
   mock: () => new MockProvider(),
-  telnyx: () => {
-    throw new Error("Telnyx provider not implemented yet");
-  },
+  telnyx: () => new TelnyxProvider(),
   twilio: () => {
     throw new Error("Twilio provider not implemented yet");
   },
 };
 
-export function getProvider(name: ProviderName = "mock"): TelecomProvider {
-  const factory = providers[name];
+/**
+ * Resolve the active telecom provider.
+ * Order of preference:
+ *   1. Explicit name argument
+ *   2. TELECOM_PROVIDER env (mock | telnyx | twilio)
+ *   3. mock
+ */
+export function getProvider(name?: ProviderName): TelecomProvider {
+  const fromEnv = (process.env.TELECOM_PROVIDER ?? "mock").toLowerCase();
+  const resolved = (name ?? fromEnv) as ProviderName;
+
+  const factory = providers[resolved];
   if (!factory) {
-    throw new Error(`Unknown provider: ${name}`);
+    throw new Error(`Unknown provider: ${resolved}`);
   }
   return factory();
 }
 
-export type { TelecomProvider, AvailableNumber, ProvisionResult, IncomingMessage } from "./provider.interface";
+export type {
+  TelecomProvider,
+  AvailableNumber,
+  ProvisionResult,
+  IncomingMessage,
+  WebhookVerifier,
+} from "./provider.interface";
 export { MockProvider } from "./providers/mock.provider";
+export { TelnyxProvider, TelnyxWebhookVerifier } from "./providers/telnyx.provider";
