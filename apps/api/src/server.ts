@@ -1,6 +1,16 @@
 import { buildApp } from "./app";
+import { assertEnv, envSummary } from "./lib/env";
 
 const start = async () => {
+  try {
+    assertEnv();
+  } catch (err) {
+    console.error("[boot] Environment check failed:", err);
+    process.exit(1);
+  }
+
+  console.log("[boot] env", envSummary());
+
   const app = await buildApp();
   const port = Number(process.env.API_PORT) || 3001;
   const host = process.env.API_HOST || "0.0.0.0";
