@@ -3,7 +3,15 @@
 export type AccountType = "personal" | "business";
 export type AccountRole = "owner" | "admin" | "member";
 export type NumberStatus = "available" | "reserved" | "assigned" | "released";
-export type RentalStatus = "pending" | "active" | "past_due" | "cancelled" | "expired";
+export type RentalStatus =
+  | "pending_payment"
+  | "provisioning"
+  | "active"
+  | "past_due"
+  | "suspended"
+  | "released"
+  | "cancelled"
+  | "expired";
 export type NumberCapability = "sms" | "voice" | "mms";
 
 export interface Account {
@@ -53,6 +61,12 @@ export interface Rental {
   cancel_at_period_end: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** Rental with joined number fields for list/detail views */
+export interface RentalWithNumber extends Rental {
+  phone_number: string | null;
+  monthly_cost_cents: number | null;
 }
 
 export interface Message {
