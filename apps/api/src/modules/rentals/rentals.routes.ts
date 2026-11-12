@@ -9,7 +9,8 @@ const WEBHOOK_URL =
   "http://localhost:3001/api/v1/webhooks/sms";
 
 export async function rentalsRoutes(app: FastifyInstance) {
-  const service = new RentalsService(getProvider("mock"));
+  // Respect TELECOM_PROVIDER env (mock | telnyx | twilio)
+  const service = new RentalsService(getProvider());
   const accounts = new AccountsService();
 
   app.post("/rentals", async (request, reply) => {
@@ -95,7 +96,9 @@ export async function rentalsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Cancel a pending_payment rental and free the number.
+   * Cancel / release a rental.
+   * - pending_payment → cancelled + inventory free
+   * - active | provisioning → released + provider release + inventory free
    */
   app.post("/rentals/:rentalId/cancel", async (request, reply) => {
     try {
@@ -115,8 +118,19 @@ export async function rentalsRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: "Forbidden" });
       }
 
-      const cancelled = await service.cancelPending(rentalId);
-      return { rental: cancelled };
+      if (rental.status === "pending_payment") {
+        const cancelled = await service.cancelPending(rentalId);
+        return { rental: cancelled };
+      }
+
+      if (rental.status === "active" || rental.status === "provisioning") {
+        const released = await service.releaseActive(rentalId);
+        return { rental: released };
+      }
+
+      return reply.code(422).send({
+        error: `Cannot cancel rental in status ${rental.status}`,
+      });
     } catch (err) {
       if (err instanceof AuthError) {
         return reply.code(401).send({ error: err.message });
