@@ -225,6 +225,27 @@ export default function HomePage() {
     }
   }
 
+  async function handleCancel(rentalId: string) {
+    if (!account) return;
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+    try {
+      await api.cancelRental(rentalId);
+      setSuccess("Rental cancelled. Number returned to inventory.");
+      if (selectedRental === rentalId) {
+        setSelectedRental(null);
+        setMessages([]);
+      }
+      const { rentals } = await api.listRentals(account.id);
+      setRentals(rentals);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel rental");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function openInbox(rentalId: string) {
     setSelectedRental(rentalId);
     setMessages([]);
@@ -447,27 +468,44 @@ export default function HomePage() {
                   {rentals.map((r) => (
                     <li key={r.id} style={styles.listItem}>
                       <div>
-                        <code>{r.id.slice(0, 8)}…</code>
+                        <strong style={{ fontSize: 16 }}>
+                          {r.phone_number ?? r.id.slice(0, 8) + "…"}
+                        </strong>
                         <div style={styles.muted}>
-                          {r.status} · ends{" "}
+                          {r.status}
+                          {r.monthly_cost_cents != null
+                            ? ` · $${(r.monthly_cost_cents / 100).toFixed(2)}/mo`
+                            : ""}
+                          {" · ends "}
                           {new Date(r.current_period_end).toLocaleDateString()}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          style={styles.buttonSecondary}
-                          onClick={() => openInbox(r.id)}
-                        >
-                          Inbox
-                        </button>
-                        {r.status === "pending_payment" && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {(r.status === "active" || r.status === "provisioning") && (
                           <button
-                            style={styles.button}
-                            onClick={() => handlePay(r.id)}
-                            disabled={loading}
+                            style={styles.buttonSecondary}
+                            onClick={() => openInbox(r.id)}
                           >
-                            Pay
+                            Inbox
                           </button>
+                        )}
+                        {r.status === "pending_payment" && (
+                          <>
+                            <button
+                              style={styles.button}
+                              onClick={() => handlePay(r.id)}
+                              disabled={loading}
+                            >
+                              Pay
+                            </button>
+                            <button
+                              style={styles.buttonSecondary}
+                              onClick={() => handleCancel(r.id)}
+                              disabled={loading}
+                            >
+                              Cancel
+                            </button>
+                          </>
                         )}
                       </div>
                     </li>
