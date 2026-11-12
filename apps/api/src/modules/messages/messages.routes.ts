@@ -20,7 +20,7 @@ const EFFECTIVE_SECRET = WEBHOOK_SECRET ?? "dev-webhook-secret-change-me";
 
 export async function messagesRoutes(app: FastifyInstance) {
   const service = new MessagesService();
-  const rentals = new RentalsService(getProvider("mock"));
+  const rentals = new RentalsService(getProvider());
   const accounts = new AccountsService();
 
   app.post("/webhooks/sms", async (request, reply) => {
