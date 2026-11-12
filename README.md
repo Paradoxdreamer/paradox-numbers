@@ -1,79 +1,58 @@
 # Paradox Numbers
 
-Paradox Telecom Services — Flagship virtual number platform.
+Paradox Telecom Services — virtual number platform.
 
 **Connecting Possibilities. Beyond Boundaries.**
 
 ## Stack
 
-- Frontend: Next.js 15 (App Router) + TypeScript
-- Backend: Fastify + TypeScript
-- Database: Supabase / PostgreSQL
-- Auth: Supabase Auth (email + password) + JWT verification on API
+- Web: Next.js 15 (App Router) + TypeScript
+- API: Fastify + TypeScript
+- DB / Auth: Supabase (Postgres + Auth)
+- Providers: mock · Telnyx · Twilio
 - Monorepo: pnpm + Turbo
 
-## What works today
+## What works
 
-1. **Sign up / Sign in** with email + password (Supabase Auth)
-2. Automatic account creation + linking on first login
-3. **JWT-protected** account resolution (`/accounts/me`)
-4. Search available US numbers (mock provider)
-5. Rent a number → provisioned + persisted
-6. View your rentals
-7. Ingest inbound SMS via webhook
+- Email + Google auth, password recovery
+- JWT-protected account, search, rentals, messages, billing initiate
+- Rental lifecycle: `pending_payment` → `provisioning` → `active` → `released` / `cancelled`
+- Pay before provision; only billing webhook activates
+- SMS ingest + OTP analysis
+- Cancel unpaid / release active (provider + inventory)
+- Production env validation on API boot
 
-| Endpoint | Description |
-|----------|-------------|
-| `POST /api/v1/accounts` | Create account |
-| `POST /api/v1/accounts/me` | Resolve/create account (**requires JWT**) |
-| `GET /api/v1/numbers/search` | Search available numbers |
-| `POST /api/v1/rentals` | Rent + provision a number |
-| `GET /api/v1/accounts/:id/rentals` | List rentals |
-| `POST /api/v1/webhooks/sms` | Ingest incoming SMS |
-| `GET /api/v1/rentals/:id/messages` | Message history |
-
-## Getting Started
+## Quick start
 
 ```bash
-# 1. Install
 pnpm install
-
-# 2. Environment
-cp .env.example .env
-# Required:
-#   NEXT_PUBLIC_SUPABASE_URL
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY
-#   SUPABASE_SERVICE_ROLE_KEY
-#   NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
-
-# 3. Database
-supabase db reset   # applies migration + seed
-
-# 4. Run both apps
+cp .env.example .env   # fill required keys — see docs/production.md
+supabase db reset      # migrations + seed
 pnpm dev
 ```
 
-- Web: http://localhost:3000
-- API: http://localhost:3001
+- Web: http://localhost:3000  
+- API: http://localhost:3001  
+- Health: `GET /health`
 
-## Structure
+## What you must supply
 
-```
-apps/
-  api/          Fastify backend
-  web/          Next.js customer UI (Auth + search/rent)
-packages/
-  shared/       Domain types
-supabase/       Migrations + seed
-docs/
-```
+All secrets and provider credentials live in `.env` (never commit real values).
 
-## Team priorities (next)
+See **`.env.example`** and **`docs/production.md`** for the full checklist:
 
-1. Apply JWT protection to more routes (rentals, messages)
-2. Real providers — Telnyx / Twilio adapters
-3. Message inbox UI + number details + cancel flow
-4. Payments — Paystack
-5. RLS policies
+| You provide | Used for |
+|-------------|----------|
+| Supabase URL + anon + service_role | DB + Auth + JWT verify |
+| `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_API_URL` | CORS, OAuth, clients |
+| `SMS_WEBHOOK_SECRET` + public webhook URL | Inbound SMS |
+| `BILLING_WEBHOOK_SECRET` | Payment confirmation |
+| Telnyx **or** Twilio keys | Live numbers |
+| Paystack keys (when ready) | Live checkout |
 
-See `/docs/architecture.md` and `/docs/security.md`.
+## Docs
+
+- `docs/production.md` — go-live checklist
+- `docs/provider-onboarding.md` — Telnyx / Twilio
+- `docs/security.md` — auth model
+- `docs/architecture.md` — system overview
