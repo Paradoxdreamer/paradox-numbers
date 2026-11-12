@@ -1,15 +1,14 @@
 import type { TelecomProvider } from "./provider.interface";
 import { MockProvider } from "./providers/mock.provider";
 import { TelnyxProvider } from "./providers/telnyx.provider";
+import { TwilioProvider } from "./providers/twilio.provider";
 
 export type ProviderName = "mock" | "telnyx" | "twilio";
 
 const providers: Record<ProviderName, () => TelecomProvider> = {
   mock: () => new MockProvider(),
   telnyx: () => new TelnyxProvider(),
-  twilio: () => {
-    throw new Error("Twilio provider not implemented yet");
-  },
+  twilio: () => new TwilioProvider(),
 };
 
 /**
@@ -39,3 +38,4 @@ export type {
 } from "./provider.interface";
 export { MockProvider } from "./providers/mock.provider";
 export { TelnyxProvider, TelnyxWebhookVerifier } from "./providers/telnyx.provider";
+export { TwilioProvider, TwilioWebhookVerifier } from "./providers/twilio.provider";
