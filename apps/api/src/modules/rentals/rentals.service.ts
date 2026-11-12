@@ -1,7 +1,7 @@
 import type { TelecomProvider, ProvisionResult } from "../telecom";
 import { getSupabase } from "../../lib/supabase";
 import { NumbersService } from "../numbers/numbers.service";
-import type { Rental } from "@paradox/shared";
+import type { Rental, RentalWithNumber } from "@paradox/shared";
 
 export type RentalStatus =
   | "pending_payment"
@@ -141,16 +141,69 @@ export class RentalsService {
     };
   }
 
-  async listByAccount(accountId: string): Promise<Rental[]> {
+  /**
+   * Cancel a pending_payment rental and release the number back to inventory.
+   * Only allowed while status is pending_payment.
+   */
+  async cancelPending(rentalId: string): Promise<Rental> {
+    const supabase = getSupabase();
+
+    const rental = await this.getById(rentalId);
+    if (!rental) throw new Error("Rental not found");
+
+    if (rental.status !== "pending_payment") {
+      throw new Error(
+        `Only pending_payment rentals can be cancelled (status: ${rental.status})`
+      );
+    }
+
+    const { data: updated, error } = await supabase
+      .from("rentals")
+      .update({
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", rentalId)
+      .eq("status", "pending_payment")
+      .select("*")
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updated) {
+      throw new Error("Rental is no longer pending_payment");
+    }
+
+    await this.numbersService.releaseClaim(rental.number_id);
+
+    return updated as Rental;
+  }
+
+  async listByAccount(accountId: string): Promise<RentalWithNumber[]> {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from("rentals")
-      .select("*")
+      .select(
+        "*, numbers ( phone_number, monthly_cost_cents )"
+      )
       .eq("account_id", accountId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data ?? []) as Rental[];
+
+    return (data ?? []).map((row) => {
+      const nested = row.numbers as
+        | { phone_number: string; monthly_cost_cents: number }
+        | null
+        | undefined;
+      const { numbers: _n, ...rental } = row as typeof row & {
+        numbers?: unknown;
+      };
+      return {
+        ...(rental as Rental),
+        phone_number: nested?.phone_number ?? null,
+        monthly_cost_cents: nested?.monthly_cost_cents ?? null,
+      };
+    });
   }
 
   async getById(rentalId: string): Promise<Rental | null> {
