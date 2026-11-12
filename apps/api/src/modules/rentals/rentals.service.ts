@@ -178,6 +178,62 @@ export class RentalsService {
     return updated as Rental;
   }
 
+  /**
+   * Release an active (or provisioning) rental:
+   * 1. Atomic status → released
+   * 2. Provider release (best-effort after DB claim)
+   * 3. Inventory back to available
+   */
+  async releaseActive(rentalId: string): Promise<Rental> {
+    const supabase = getSupabase();
+
+    const rental = await this.getById(rentalId);
+    if (!rental) throw new Error("Rental not found");
+
+    if (rental.status !== "active" && rental.status !== "provisioning") {
+      throw new Error(
+        `Only active/provisioning rentals can be released (status: ${rental.status})`
+      );
+    }
+
+    const { data: updated, error } = await supabase
+      .from("rentals")
+      .update({
+        status: "released",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", rentalId)
+      .in("status", ["active", "provisioning"])
+      .select("*")
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updated) {
+      throw new Error("Rental is no longer active/provisioning");
+    }
+
+    const { data: numberRow } = await supabase
+      .from("numbers")
+      .select("phone_number")
+      .eq("id", rental.number_id)
+      .single();
+
+    if (numberRow?.phone_number) {
+      try {
+        await this.provider.releaseNumber({
+          phoneNumber: numberRow.phone_number,
+        });
+      } catch (err) {
+        // DB already released; log and continue so inventory is freed
+        console.error("[RentalsService] provider release failed", err);
+      }
+    }
+
+    await this.numbersService.releaseClaim(rental.number_id);
+
+    return updated as Rental;
+  }
+
   async listByAccount(accountId: string): Promise<RentalWithNumber[]> {
     const supabase = getSupabase();
     const { data, error } = await supabase
