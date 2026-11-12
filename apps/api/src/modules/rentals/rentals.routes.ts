@@ -93,4 +93,38 @@ export async function rentalsRoutes(app: FastifyInstance) {
       return reply.code(500).send({ error: "Failed to get rental" });
     }
   });
+
+  /**
+   * Cancel a pending_payment rental and free the number.
+   */
+  app.post("/rentals/:rentalId/cancel", async (request, reply) => {
+    try {
+      const userId = await requireUserId(request);
+      const { rentalId } = request.params as { rentalId: string };
+
+      const rental = await service.getById(rentalId);
+      if (!rental) {
+        return reply.code(404).send({ error: "Rental not found" });
+      }
+
+      const allowed = await accounts.userBelongsToAccount(
+        userId,
+        rental.account_id
+      );
+      if (!allowed) {
+        return reply.code(403).send({ error: "Forbidden" });
+      }
+
+      const cancelled = await service.cancelPending(rentalId);
+      return { rental: cancelled };
+    } catch (err) {
+      if (err instanceof AuthError) {
+        return reply.code(401).send({ error: err.message });
+      }
+      const message =
+        err instanceof Error ? err.message : "Failed to cancel rental";
+      request.log.error({ err }, "Cancel rental failed");
+      return reply.code(422).send({ error: message });
+    }
+  });
 }
