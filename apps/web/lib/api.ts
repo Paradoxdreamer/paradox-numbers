@@ -62,6 +62,8 @@ export type Rental = {
   status: string;
   started_at: string;
   current_period_end: string;
+  phone_number?: string | null;
+  monthly_cost_cents?: number | null;
 };
 
 export type Message = {
@@ -122,6 +124,14 @@ export const api = {
     return request<{ rentals: Rental[] }>(
       `/accounts/${accountId}/rentals`,
       {},
+      true
+    );
+  },
+
+  cancelRental(rentalId: string) {
+    return request<{ rental: Rental }>(
+      `/rentals/${rentalId}/cancel`,
+      { method: "POST" },
       true
     );
   },
