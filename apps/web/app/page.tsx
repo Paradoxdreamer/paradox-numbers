@@ -232,7 +232,7 @@ export default function HomePage() {
     setLoading(true);
     try {
       await api.cancelRental(rentalId);
-      setSuccess("Rental cancelled. Number returned to inventory.");
+      setSuccess("Rental ended. Number released.");
       if (selectedRental === rentalId) {
         setSelectedRental(null);
         setMessages([]);
@@ -482,12 +482,21 @@ export default function HomePage() {
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {(r.status === "active" || r.status === "provisioning") && (
-                          <button
-                            style={styles.buttonSecondary}
-                            onClick={() => openInbox(r.id)}
-                          >
-                            Inbox
-                          </button>
+                          <>
+                            <button
+                              style={styles.buttonSecondary}
+                              onClick={() => openInbox(r.id)}
+                            >
+                              Inbox
+                            </button>
+                            <button
+                              style={styles.buttonSecondary}
+                              onClick={() => handleCancel(r.id)}
+                              disabled={loading}
+                            >
+                              Release
+                            </button>
+                          </>
                         )}
                         {r.status === "pending_payment" && (
                           <>
