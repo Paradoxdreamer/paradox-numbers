@@ -4,7 +4,7 @@ import { getProvider } from "../telecom";
 import { requireUserId, AuthError } from "../../lib/auth";
 
 export async function numbersRoutes(app: FastifyInstance) {
-  const service = new NumbersService(getProvider("mock"));
+  const service = new NumbersService(getProvider());
 
   app.get("/numbers/search", async (request, reply) => {
     try {
