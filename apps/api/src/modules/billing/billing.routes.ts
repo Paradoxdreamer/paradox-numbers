@@ -11,7 +11,7 @@ const WEBHOOK_URL =
 const BILLING_WEBHOOK_SECRET = process.env.BILLING_WEBHOOK_SECRET;
 
 export async function billingRoutes(app: FastifyInstance) {
-  const rentals = new RentalsService(getProvider("mock"));
+  const rentals = new RentalsService(getProvider());
   const accounts = new AccountsService();
 
   app.post("/billing/initiate/:rentalId", async (request, reply) => {
@@ -105,8 +105,8 @@ export async function billingRoutes(app: FastifyInstance) {
         amount_cents: body.amountCents,
         currency: body.currency ?? "USD",
         status: "succeeded",
-        verified_at: new Date().toISOString(),
         raw_payload: body,
+        verified_at: new Date().toISOString(),
       },
       { onConflict: "provider_reference" }
     );
